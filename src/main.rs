@@ -1,7 +1,4 @@
-use linux_voice_input_rs::{
-    audio::AudioRecorder, output::ClipboardOutput, whisper::WhisperEngine, Config,
-};
-use std::time::Duration;
+use linux_voice_input_rs::{online::XfyunRealtimeRecognizer, output::ClipboardOutput, Config};
 
 #[tokio::main]
 async fn main() -> linux_voice_input_rs::Result<()> {
@@ -13,7 +10,7 @@ async fn main() -> linux_voice_input_rs::Result<()> {
         )
         .init();
 
-    println!("🎙️  Linux Voice Input - Rust 版本");
+    println!("🎙️  Linux Voice Input - 讯飞云在线版");
     println!("=====================================\n");
 
     // 加载配置
@@ -22,48 +19,38 @@ async fn main() -> linux_voice_input_rs::Result<()> {
     println!("📝 配置信息:");
     println!("  - 采样率: {} Hz", config.audio.sample_rate);
     println!("  - 声道数: {}", config.audio.channels);
-    println!("  - 模型路径: {}", config.whisper.model_path);
-    println!("  - 识别语言: {}", config.whisper.language);
     println!("  - 静音阈值: {}", config.whisper.silence_threshold);
-    println!("  - 静音持续: {:.1} 秒\n", config.whisper.silence_duration);
+    println!("  - 静音持续: {:.1} 秒", config.whisper.silence_duration);
+    println!("  - 讯飞云 App ID: {}\n", config.xfyun.app_id);
 
-    // 步骤 1: 创建 Whisper 引擎
-    println!("⏳ 正在加载 Whisper 模型...");
-    let mut engine = WhisperEngine::new(&config.whisper.model_path, &config.whisper.language)?;
-    println!("✅ 模型加载成功\n");
+    // 检查讯飞云配置
+    if config.xfyun.app_id.is_empty()
+        || config.xfyun.api_secret.is_empty()
+        || config.xfyun.api_key.is_empty()
+    {
+        eprintln!("❌ 错误: 请在 config.toml 中配置讯飞云 API 密钥");
+        eprintln!("   需要设置: app_id, api_secret, api_key");
+        std::process::exit(1);
+    }
 
-    // 步骤 2: 创建音频录制器
-    let recorder = AudioRecorder::new(config.audio.sample_rate, config.audio.channels)?;
-
-    // 步骤 3: 录制音频
-    let audio_buffer = recorder.record_until_silence(
-        Duration::from_secs(config.whisper.max_duration),
-        config.whisper.silence_threshold,
-        config.whisper.silence_duration,
-    )?;
-
-    println!("\n📊 录制统计:");
-    println!("  - 样本数: {}", audio_buffer.len());
-    println!(
-        "  - 时长: {:.2} 秒",
-        audio_buffer.len() as f32 / config.audio.sample_rate as f32
-    );
-    println!(
-        "  - 数据大小: {:.2} KB",
-        (audio_buffer.len() * 4) as f32 / 1024.0
+    // 创建讯飞云实时识别器
+    let recognizer = XfyunRealtimeRecognizer::new(
+        config.xfyun.app_id.clone(),
+        config.xfyun.api_secret.clone(),
+        config.xfyun.api_key.clone(),
     );
 
-    // 步骤 4: 识别音频
-    println!("\n⏳ 正在识别...");
-    let text = engine.transcribe(audio_buffer).await?;
+    // 实时识别（边录边发送）
+    let text = recognizer
+        .recognize_realtime(config.audio.sample_rate)
+        .await?;
 
-    println!("\n✅ 识别完成！");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("📝 识别结果:");
     println!("{}", text);
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-    // 步骤 5: 复制到剪贴板
+    // 复制到剪贴板
     let mut clipboard = ClipboardOutput::new()?;
     clipboard.copy(&text)?;
 

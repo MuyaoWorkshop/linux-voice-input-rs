@@ -143,6 +143,7 @@ impl Config {
     /// 加载配置（多路径查找）
     pub fn load() -> crate::utils::Result<Self> {
         let config_paths = vec![
+            "./config.toml".to_string(),
             "./voice-input.toml".to_string(),
             format!("{}/.config/voice-input/config.toml",
                 std::env::var("HOME").unwrap_or_else(|_| ".".to_string())),

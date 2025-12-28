@@ -41,14 +41,17 @@ httpdate = "1.0"
 urlencoding = "2.1"
 
 # WebSocket 客户端（在线识别）
-tokio-tungstenite = "0.21"
-
-# Whisper 绑定（离线识别）
-whisper-rs = "0.10"
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+futures = "0.3"
 
 # 工具库
 once_cell = "1.19"
 shellexpand = "3.1"
+chrono = "0.4"
+ctrlc = "3.4"
+
+# HTTP 客户端（备用）
+reqwest = { version = "0.11", features = ["json"] }
 
 [profile.release]
 lto = "fat"              # 链接时优化
