@@ -42,7 +42,10 @@ async fn main() -> linux_voice_input_rs::Result<()> {
 
     // 实时识别（边录边发送）
     let text = recognizer
-        .recognize_realtime(config.audio.sample_rate)
+        .recognize_realtime(
+            config.audio.sample_rate,
+            config.whisper.silence_duration,
+        )
         .await?;
 
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

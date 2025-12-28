@@ -69,13 +69,19 @@ impl XfyunRealtimeRecognizer {
     }
 
     /// 实时流式识别（边录边发送）
-    pub async fn recognize_realtime(&self, sample_rate: u32) -> Result<String> {
+    pub async fn recognize_realtime(
+        &self,
+        sample_rate: u32,
+        silence_duration: f32,
+    ) -> Result<String> {
         println!("🌐 正在连接讯飞语音识别服务...");
 
         // 生成鉴权 URL
         let url = self.generate_auth_url()?;
+        tracing::debug!("WebSocket URL: {}", url);
 
         // 建立 WebSocket 连接
+        println!("正在建立 WebSocket 连接...");
         let (ws_stream, _) = connect_async(&url)
             .await
             .map_err(|e| VoiceInputError::Recognition(format!("WebSocket 连接失败: {}", e)))?;
@@ -87,6 +93,7 @@ impl XfyunRealtimeRecognizer {
         let result_clone = result.clone();
         let is_running = Arc::new(AtomicBool::new(true));
         let is_running_for_ctrlc = is_running.clone();
+        let is_running_for_receive = is_running.clone();
 
         // Ctrl+C 处理
         ctrlc::set_handler(move || {
@@ -145,10 +152,13 @@ impl XfyunRealtimeRecognizer {
                                     }
                                 }
 
-                                // 检查是否结束
+                                // 检查是否结束（讯飞云 VAD 检测到静音）
                                 if let Some(status) = data.get("status") {
                                     if status.as_i64() == Some(2) {
+                                        println!("\n🔇 检测到静音，自动停止录音");
                                         tracing::info!("✅ 识别完成");
+                                        // 通知发送端停止
+                                        is_running_for_receive.store(false, Ordering::SeqCst);
                                         break;
                                     }
                                 }
@@ -170,7 +180,13 @@ impl XfyunRealtimeRecognizer {
 
         // 录音并发送
         let app_id = self.app_id.clone();
-        let send_result = self.record_and_send(write, sample_rate, app_id, is_running).await;
+        let send_result = self.record_and_send(
+            write,
+            sample_rate,
+            app_id,
+            is_running,
+            silence_duration,
+        ).await;
 
         // 等待接收完成
         receive_task.await.map_err(|e| {
@@ -197,6 +213,7 @@ impl XfyunRealtimeRecognizer {
         sample_rate: u32,
         app_id: String,
         is_running: Arc<AtomicBool>,
+        silence_duration: f32,
     ) -> Result<()> {
         // 获取音频设备
         let host = cpal::default_host();
@@ -311,9 +328,13 @@ impl XfyunRealtimeRecognizer {
             VoiceInputError::AudioRecord(format!("启动音频流失败: {}", e))
         })?;
 
-        println!("🎤 开始录音... (按 Ctrl+C 停止)\n");
+        println!("🎤 开始录音... (按 Ctrl+C 停止)");
+        println!("💡 说完话后保持静音 {:.1} 秒即可自动停止\n", silence_duration);
 
         let mut status = 0; // 0: 首帧, 1: 中间帧, 2: 末帧
+
+        // 将静音持续时间转换为毫秒（讯飞云 vad_eos 参数）
+        let vad_eos = (silence_duration * 1000.0) as u32;
 
         // 发送音频帧
         while is_running.load(Ordering::SeqCst) {
@@ -349,7 +370,7 @@ impl XfyunRealtimeRecognizer {
                         "language": "zh_cn",
                         "domain": "iat",
                         "accent": "mandarin",
-                        "vad_eos": 10000
+                        "vad_eos": vad_eos  // 使用配置的静音超时时间
                     },
                     "data": {
                         "status": 0,
