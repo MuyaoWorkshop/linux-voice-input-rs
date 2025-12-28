@@ -48,6 +48,7 @@ whisper-rs = "0.10"
 
 # 工具库
 once_cell = "1.19"
+shellexpand = "3.1"
 
 [profile.release]
 lto = "fat"              # 链接时优化

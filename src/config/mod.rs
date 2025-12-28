@@ -71,8 +71,25 @@ impl Default for Config {
 impl Default for WhisperConfig {
     fn default() -> Self {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+
+        // 多路径查找模型文件（优先级顺序）
+        let model_paths = vec![
+            format!("{}/.local/share/whisper/ggml-base.bin", home),  // XDG 规范
+            format!("{}/.cache/whisper/ggml-base.bin", home),        // 兼容性
+            format!("./models/ggml-base.bin"),                        // 本地目录
+        ];
+
+        let model_path = model_paths
+            .iter()
+            .find(|p| std::path::Path::new(p).exists())
+            .cloned()
+            .unwrap_or_else(|| {
+                // 如果都不存在，返回推荐的默认路径
+                format!("{}/.local/share/whisper/ggml-base.bin", home)
+            });
+
         Self {
-            model_path: format!("{}/.local/share/voice-input/models/ggml-base.bin", home),
+            model_path,
             language: "zh".to_string(),
             max_duration: 60,
             silence_threshold: 0.02,

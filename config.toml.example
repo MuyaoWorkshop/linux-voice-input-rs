@@ -1,0 +1,66 @@
+# Linux Voice Input - 配置文件示例
+# 复制此文件并根据需要修改参数
+
+[whisper]
+# Whisper 模型文件路径
+# 支持的路径（按优先级查找）：
+#   1. ~/.local/share/whisper/ggml-base.bin  (推荐，XDG 标准)
+#   2. ~/.cache/whisper/ggml-base.bin        (兼容 Python whisper)
+#   3. ./models/ggml-base.bin                (本地目录)
+model_path = "~/.local/share/whisper/ggml-base.bin"
+
+# 识别语言（ISO 639-1 代码）
+# 支持: zh(中文), en(英文), ja(日语), etc.
+language = "zh"
+
+# 最大录音时长（秒）
+# 超过此时长会自动停止录音
+max_duration = 60
+
+# 静音检测阈值（0.0-1.0）
+# 较小的值更敏感（更容易检测到静音）
+# 建议范围：0.01-0.05
+# - 0.01: 非常敏感，适合安静环境
+# - 0.02: 默认，平衡灵敏度
+# - 0.05: 不太敏感，适合嘈杂环境
+silence_threshold = 0.02
+
+# 静音持续时间（秒）
+# 检测到静音后需要持续多久才停止录音
+# 建议范围：1.5-5.0
+# - 1.5: 快速停止，适合短语音
+# - 3.0: 默认，平衡选择
+# - 5.0: 延迟停止，适合长停顿的场景（如思考时）
+silence_duration = 3.0
+
+[xfyun]
+# 讯飞云 API 配置（在线识别使用）
+# 从 https://console.xfyun.cn/ 获取
+# 也可以通过环境变量设置：
+#   export XFYUN_APP_ID="your_app_id"
+#   export XFYUN_API_SECRET="your_secret"
+#   export XFYUN_API_KEY="your_key"
+app_id = ""
+api_secret = ""
+api_key = ""
+
+[audio]
+# 音频采样率（Hz）
+# 推荐: 16000 (Whisper 和讯飞云都支持)
+sample_rate = 16000
+
+# 声道数
+# 推荐: 1 (单声道，节省资源)
+channels = 1
+
+# 音频块大小（字节，在线模式使用）
+# 讯飞云建议: 1280 (40ms @ 16kHz)
+chunk_size = 1280
+
+[output]
+# 默认输出方式
+# 可选: clipboard | file
+default = "clipboard"
+
+# 文件输出路径（当 default = "file" 时使用）
+# file_path = "~/voice-output.txt"
